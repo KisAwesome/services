@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {DOMAIN}.{SERVICE_NAME} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+        <string>{DOMAIN}.{SERVICE_NAME}</string>
+    <key>Program</key>
+        <string>{LAUNCHER_PATH}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>arg1</string>
+        <string>{PATH_TO_PROGRAM}</string>
+    </array>
+    <key>RunAtLoad</key>
+        <true/>
+    <key>StandardErrorPath</key>
+        <string>.output/stdout</string>
+    <key>StandardOutPath</key>
+        <string>.output/stdout</string>
+    <key>WorkingDirectory</key>
+        <string>{WORKING_DIR}</string>
+</dict>
+</plist>
