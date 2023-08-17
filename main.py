@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import zono.colorlogger as cl
 import zono.settings
+import parser_util
 import subprocess
 import argparse
 import plistlib
@@ -47,7 +48,7 @@ def get_service(opts, parser):
     return service, services
 
 
-def get_domain( ):
+def get_domain():
     return f"gui/{os.getuid()}"
 
 
@@ -247,21 +248,7 @@ def get_service_info(service, service_info):
     )
 
 
-def start(args):
-    parser = argparse.ArgumentParser(prog="start", description="Starts a service")
-    parser.add_argument("service", help="The name of the service you want to start")
-    parser.add_argument(
-        "--force",
-        help="Starts the service even if it is already running",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--watch",
-        help="Prints live logs from the specified service after it is started",
-        action="store_true",
-    )
-
-    opts = parser.parse_args(args)
+def start(opts, parser):
     with open(get_file("services.json"), "r") as f:
         services = json.load(f)
 
@@ -287,15 +274,7 @@ def start(args):
         os.system(f"tail -f {outpath}")
 
 
-def status(args):
-    parser = argparse.ArgumentParser(
-        prog="start", description="View the status of all services"
-    )
-    parser.add_argument(
-        "--json", help="Outputs service status as json", action="store_true"
-    )
-
-    opts = parser.parse_args(args)
+def status(opts, parser):
     with open(get_file("services.json"), "r") as f:
         services = json.load(f)
 
@@ -313,29 +292,7 @@ def status(args):
     return 0
 
 
-def logs(args):
-    parser = argparse.ArgumentParser(
-        prog="logs", description="Prints the logs from the specified service"
-    )
-    parser.add_argument("service", help="The name of the service you want to stop")
-    g = parser.add_mutually_exclusive_group()
-    g.add_argument(
-        "--watch",
-        help="Prints live logs from the specified service",
-        action="store_true",
-    )
-    g.add_argument(
-        "--file",
-        help="Displays the path to the log file",
-        action="store_true",
-    )
-    g.add_argument(
-        "--clear",
-        help="Clear the log file",
-        action="store_true",
-    )
-    parser.add_argument("--json", help="Outputs logs as json", action="store_true")
-    opts = parser.parse_args(args)
+def logs(opts, parser):
     service, _ = get_service(opts, parser)
 
     outpath = os.path.join(os.path.dirname(service["mainfile"]), ".output/stdout")
@@ -364,17 +321,7 @@ def logs(args):
     return 0
 
 
-def stop(args):
-    parser = argparse.ArgumentParser(
-        prog="stop", description="Stops the specified service"
-    )
-    parser.add_argument("service", help="The name of the service you want to stop")
-    parser.add_argument(
-        "--remove",
-        help="Stop and then unload the specified service",
-        action="store_true",
-    )
-    opts = parser.parse_args(args)
+def stop(opts, parser):
     with open(get_file("services.json"), "r") as f:
         services = json.load(f)
 
@@ -392,14 +339,7 @@ def stop(args):
     return stop_service(opts.service)
 
 
-def unload(args):
-    parser = argparse.ArgumentParser(
-        prog="unload", description="unloads a service from the service manager"
-    )
-    parser.add_argument(
-        "service", help="The name of the service you want to unregister"
-    )
-    opts = parser.parse_args(args)
+def unload(opts, parser):
     _, services = get_service(opts, parser)
 
     remove_service(opts.service, disp=False)
@@ -410,18 +350,7 @@ def unload(args):
     os.remove(get_file(f".services/{opts.service}.plist"))
 
 
-def info(args):
-    parser = argparse.ArgumentParser(
-        prog="info", description="Display information about a service"
-    )
-
-    parser.add_argument(
-        "--json", help="Displays the service info as json", action="store_true"
-    )
-    parser.add_argument("service", help="Name of the service you want to view")
-
-    opts = parser.parse_args(args)
-
+def info(opts, parser):
     service, _ = get_service(opts, parser)
 
     service_info = get_service_info(opts.service, service)
@@ -444,26 +373,7 @@ def info(args):
     )
 
 
-def create_plist(args):
-    parser = argparse.ArgumentParser(
-        prog="create_plist",
-        description="Create a plist configuration file for a certain script",
-    )
-    parser.add_argument("input_file", help="The file the service should run")
-    parser.add_argument("service_name", help="The name of the service")
-    parser.add_argument(
-        "--domain",
-        help="Manually set the domain that the service uses",
-        default=settings.get_value("domain"),
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        help="The file you would like to output the plist in to",
-        default=None,
-    )
-
-    opts = parser.parse_args(args)
+def create_plist(opts, parser):
     opts.input_file = os.path.abspath(opts.input_file)
     if not os.path.exists(opts.input_file):
         return parser.error(f"File {opts.input_file} does not exist")
@@ -478,15 +388,7 @@ def create_plist(args):
     return 0
 
 
-def load(args):
-    parser = argparse.ArgumentParser(
-        prog="load", description="Load a .plist in to the service manager"
-    )
-    parser.add_argument("file", help="The file you would like to load")
-    parser.add_argument(
-        "-name", help="The name of the service you would like to load", default=None
-    )
-    opts = parser.parse_args(args)
+def load(opts, parser):
     opts.inputfile = opts.file
     opts.file = os.path.abspath(opts.file)
     if not os.path.exists(opts.file):
@@ -546,22 +448,113 @@ commands = dict(
 
 
 def parse_args():
-    args = sys.argv[1:]
     parser = argparse.ArgumentParser(
         prog="service",
         description="A simple service manager",
-        usage="Pick a subcommand for more specific help",
+        formatter_class=parser_util.NoSubparsersMetavarFormatter,
     )
 
-    parser.add_argument("command", help="The command to run", choices=commands.keys())
+    subparsers = parser.add_subparsers(
+        title="Commands", dest="command", required=True, metavar=None
+    )
+    start_parser = subparsers.add_parser("start", help="Starts a service")
+    start_parser.add_argument(
+        "service", help="The name of the service you want to start"
+    )
+    start_parser.add_argument(
+        "--force",
+        help="Starts the service even if it is already running",
+        action="store_true",
+    )
+    start_parser.add_argument(
+        "--watch",
+        help="Prints live logs from the specified service after it is started",
+        action="store_true",
+    )
 
-    if args:
-        command = [args[0]]
-    else:
-        command = []
-    opts = parser.parse_args(command)
+    status_parser = subparsers.add_parser(
+        "status", help="View the status of all services"
+    )
+    status_parser.add_argument(
+        "--json", help="Outputs service status as json", action="store_true"
+    )
 
-    return opts, parser, args[1:]
+    stop_parser = subparsers.add_parser("stop", help="Stops the specified service")
+    stop_parser.add_argument("service", help="The name of the service you want to stop")
+    stop_parser.add_argument(
+        "--remove",
+        help="Stop and then unload the specified service",
+        action="store_true",
+    )
+
+    logs_parser = subparsers.add_parser(
+        "logs", help="Prints the logs from the specified service"
+    )
+    logs_parser.add_argument("service", help="The name of the service you want to stop")
+    g = logs_parser.add_mutually_exclusive_group()
+    g.add_argument(
+        "--watch",
+        help="Prints live logs from the specified service",
+        action="store_true",
+    )
+    g.add_argument(
+        "--file",
+        help="Displays the path to the log file",
+        action="store_true",
+    )
+    g.add_argument(
+        "--clear",
+        help="Clear the log file",
+        action="store_true",
+    )
+    logs_parser.add_argument("--json", help="Outputs logs as json", action="store_true")
+
+    load_parser = subparsers.add_parser(
+        "load", help="Load a .plist or script in to the service manager as service"
+    )
+    load_parser.add_argument("file", help="The file you would like to load")
+    load_parser.add_argument(
+        "-name", help="The name of the service you would like to load", default=None
+    )
+
+    unload_parser = subparsers.add_parser(
+        "unload", help="Unloads a service from the service manager"
+    )
+    unload_parser.add_argument(
+        "service", help="The name of the service you want to unregister"
+    )
+
+    info_parser = subparsers.add_parser(
+        "info", help="Display information about a service"
+    )
+    info_parser.add_argument(
+        "--json", help="Displays the service info as json", action="store_true"
+    )
+    info_parser.add_argument("service", help="Name of the service you want to view")
+
+    create_plist_parser = subparsers.add_parser(
+        "create_plist",
+        help="Create a plist configuration file for a certain script",
+    )
+    create_plist_parser.add_argument(
+        "input_file", help="The file the service should run"
+    )
+    create_plist_parser.add_argument("service_name", help="The name of the service")
+    create_plist_parser.add_argument(
+        "--domain",
+        help="Manually set the domain that the service uses",
+        default=settings.get_value("domain"),
+    )
+    create_plist_parser.add_argument(
+        "--output",
+        "-o",
+        help="The file you would like to output the plist in to",
+        default=None,
+    )
+
+    opts = parser.parse_args()
+
+    return opts, locals()[f"{opts.command}_parser"]
 
 
 def main():
@@ -571,7 +564,7 @@ def main():
         install.main()
     with open(get_file("env.txt"), "w") as f:
         f.write(os.environ.get("PATH"))
-    opts, parser, args = parse_args()
+    opts, parser = parse_args()
 
     if os.getuid() == 0:
         parser.error(
@@ -579,7 +572,7 @@ def main():
         )
 
     cmd = commands.get(opts.command)
-    sys.exit(cmd(args))
+    sys.exit(cmd(opts, parser))
 
 
 if __name__ == "__main__":
