@@ -174,12 +174,24 @@ def kill_service(service):
     return 0
 
 
-def stop_service(service):
+def terminate_service(service):
+    c = subprocess.run(["launchctl", "stop", get_job_label(service)])
+    if c.returncode != 0:
+        cl.error("An error occurred while stopping the service")
+        return 1
+    cl.log("Service stopped successfully")
+    return 0
+
+
+def stop_service(service, kill=False):
     stat, *_ = service_status(service)
     if stat is not True:
         cl.error(f"Service {service} is already stopped")
         return 1
-    return kill_service(service)
+    if kill:
+        return kill_service(service)
+    else:
+        return terminate_service(service)
 
 
 def start_service(service, opts):
@@ -327,7 +339,7 @@ def stop(opts, parser):
 
     if opts.service == "all":
         for service in services:
-            stop_service(service)
+            stop_service(service, kill=opts.kill)
         return 0
     service = services.get(opts.service, None)
     if service is None:
@@ -336,7 +348,7 @@ def stop(opts, parser):
         return remove_service(
             opts.service,
         )
-    return stop_service(opts.service)
+    return stop_service(opts.service, kill=opts.kill)
 
 
 def unload(opts, parser):
@@ -481,10 +493,14 @@ def parse_args():
 
     stop_parser = subparsers.add_parser("stop", help="Stops the specified service")
     stop_parser.add_argument("service", help="The name of the service you want to stop")
-    stop_parser.add_argument(
+    stop_group = stop_parser.add_mutually_exclusive_group()
+    stop_group.add_argument(
         "--remove",
         help="Stop and then unload the specified service",
         action="store_true",
+    )
+    stop_group.add_argument(
+        "--kill", help="Force kill the service", action="store_true"
     )
 
     logs_parser = subparsers.add_parser(

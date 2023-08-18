@@ -9,7 +9,7 @@
         <string>{LAUNCHER_PATH}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>arg1</string>
+        <string></string>
         <string>{PATH_TO_PROGRAM}</string>
     </array>
     <key>RunAtLoad</key>

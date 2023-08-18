@@ -10,6 +10,7 @@ def get_file(filename):
 
 
 def main():
+    cl.log("Installing service because this is the first run")
     outfile = "com.kareem.services.startup.plist"
 
     with open(get_file("services.json"), "w") as f:
