@@ -461,15 +461,8 @@ commands = dict(
 )
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        prog="service",
-        description="A simple service manager",
-        formatter_class=parser_util.NoSubparsersMetavarFormatter,
-    )
-
-    subparsers = parser.add_subparsers(title="Commands", dest="command", required=True)
-    start_parser = subparsers.add_parser("start", help="Starts a service")
+def create_start_parser(subparser):
+    start_parser = subparser.add_parser("start", help="Starts a service")
     start_parser.add_argument(
         "service", help="The name of the service you want to start"
     )
@@ -484,14 +477,18 @@ def parse_args():
         action="store_true",
     )
 
-    status_parser = subparsers.add_parser(
+
+def create_status_parser(subparser):
+    status_parser = subparser.add_parser(
         "status", help="View the status of all services"
     )
     status_parser.add_argument(
         "--json", help="Outputs service status as json", action="store_true"
     )
 
-    stop_parser = subparsers.add_parser("stop", help="Stops the specified service")
+
+def create_stop_parser(subparser):
+    stop_parser = subparser.add_parser("stop", help="Stops the specified service")
     stop_parser.add_argument("service", help="The name of the service you want to stop")
     stop_group = stop_parser.add_mutually_exclusive_group()
     stop_group.add_argument(
@@ -503,7 +500,9 @@ def parse_args():
         "--kill", help="Force kill the service", action="store_true"
     )
 
-    logs_parser = subparsers.add_parser(
+
+def create_log_parser(subparser):
+    logs_parser = subparser.add_parser(
         "logs",
         help="Prints the logs from the specified service",
         description="Prints the logs from the specified service",
@@ -527,7 +526,9 @@ def parse_args():
     )
     logs_parser.add_argument("--json", help="Outputs logs as json", action="store_true")
 
-    load_parser = subparsers.add_parser(
+
+def create_load_parser(subparser):
+    load_parser = subparser.add_parser(
         "load", help="Load a .plist or script in to the service manager as service"
     )
     load_parser.add_argument("file", help="The file you would like to load")
@@ -535,14 +536,18 @@ def parse_args():
         "-name", help="The name of the service you would like to load", default=None
     )
 
-    unload_parser = subparsers.add_parser(
+
+def create_unload_parser(subparser):
+    unload_parser = subparser.add_parser(
         "unload", help="Unloads a service from the service manager"
     )
     unload_parser.add_argument(
         "service", help="The name of the service you want to unregister"
     )
 
-    info_parser = subparsers.add_parser(
+
+def create_info_parser(subparser):
+    info_parser = subparser.add_parser(
         "info", help="Display information about a service"
     )
     info_parser.add_argument(
@@ -550,7 +555,9 @@ def parse_args():
     )
     info_parser.add_argument("service", help="Name of the service you want to view")
 
-    create_plist_parser = subparsers.add_parser(
+
+def create_plist_parser(subparser):
+    create_plist_parser = subparser.add_parser(
         "create_plist",
         help="Create a plist configuration file for a certain script",
     )
@@ -570,9 +577,27 @@ def parse_args():
         default=None,
     )
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog="service",
+        description="A simple service manager",
+        formatter_class=parser_util.NoSubparsersMetavarFormatter,
+    )
+
+    subparser = parser.add_subparsers(title="Commands", dest="command", required=True)
+    create_start_parser(subparser)
+    create_stop_parser(subparser)
+    create_plist_parser(subparser)
+    create_load_parser(subparser)
+    create_log_parser(subparser)
+    create_unload_parser(subparser)
+    create_info_parser(subparser)
+    create_status_parser(subparser)
+
     opts = parser.parse_args()
 
-    return opts, locals()[f"{opts.command}_parser"]
+    return opts, subparser.choices[opts.command]
 
 
 def main():
