@@ -15,6 +15,7 @@ def main():
     with open(get_file("services.json"), "w") as f:
         json.dump({}, f)
 
+    os.system(f'chmod +x {get_file("service_launcher.py")}')
     if not os.path.exists(get_file(".services")):
         os.mkdir(get_file(".services"))
 
