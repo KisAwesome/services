@@ -410,6 +410,8 @@ def load(opts, parser):
         if settings.get_value("domain") != service_domain:
             service_name = data["Label"]
 
+        service_name = opts.name or service_name
+
         with open(get_file("services.json")) as f:
             services = json.load(f)
         if service_name in services:
@@ -454,9 +456,7 @@ def parse_args():
         formatter_class=parser_util.NoSubparsersMetavarFormatter,
     )
 
-    subparsers = parser.add_subparsers(
-        title="Commands", dest="command", required=True, metavar=None
-    )
+    subparsers = parser.add_subparsers(title="Commands", dest="command", required=True)
     start_parser = subparsers.add_parser("start", help="Starts a service")
     start_parser.add_argument(
         "service", help="The name of the service you want to start"
@@ -488,7 +488,9 @@ def parse_args():
     )
 
     logs_parser = subparsers.add_parser(
-        "logs", help="Prints the logs from the specified service"
+        "logs",
+        help="Prints the logs from the specified service",
+        description="Prints the logs from the specified service",
     )
     logs_parser.add_argument("service", help="The name of the service you want to stop")
     g = logs_parser.add_mutually_exclusive_group()
