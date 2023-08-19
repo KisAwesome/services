@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import zono.colorlogger as cl
+import zono.colorlogger
 import zono.settings
 import parser_util
 import subprocess
@@ -7,10 +7,14 @@ import argparse
 import plistlib
 import colorama
 import tabulate
+import logging
 import shutil
 import json
 import sys
 import os
+
+
+logger = zono.colorlogger.create_logger("main")
 
 
 def get_file(filename):
@@ -142,51 +146,54 @@ def kickstart_service(service):
         ]
     )
     if c.returncode == 0:
-        cl.log("Service successfully started")
+        logger.info("Service successfully started")
         return 0
     else:
-        cl.error("Failed to launch service")
+        logger.error("Failed to launch service")
         return 1
 
 
 def create_service(service, config):
+    logger.debug("Service not found registering with launchctl")
     c = subprocess.run(["launchctl", "enable", get_service_target(service)])
     if c.returncode != 0:
-        cl.error("Failed to launch service (error while enabling the service)")
+        logger.error("Failed to launch service")
+        logger.debug("error while enabling the service")
         return 1
-
+    logger.debug("Enabled the service")
     c = subprocess.run(["launchctl", "bootstrap", get_domain(), config])
 
     if c.returncode != 0:
-        cl.error("Failed to launch service (error while bootstrapping the service)")
+        logger.error("Failed to launch service")
+        logger.debug("error while enabling the service")
         return 1
-
-    cl.log("Service started successfully")
+    logger.debug("Added service")
+    logger.info("Service started successfully")
     return 0
 
 
 def kill_service(service):
     c = subprocess.run(["launchctl", "kill", "9", get_service_target(service)])
     if c.returncode != 0:
-        cl.error("An error occurred while stopping the service")
+        logger.error("An error occurred while stopping the service")
         return 1
-    cl.log("Service stopped successfully")
+    logger.info("Service stopped successfully")
     return 0
 
 
 def terminate_service(service):
     c = subprocess.run(["launchctl", "stop", get_job_label(service)])
     if c.returncode != 0:
-        cl.error("An error occurred while stopping the service")
+        logger.error("An error occurred while stopping the service")
         return 1
-    cl.log("Service stopped successfully")
+    logger.info("Service stopped successfully")
     return 0
 
 
 def stop_service(service, kill=False):
     stat, *_ = service_status(service)
     if stat is not True:
-        cl.error(f"Service {service} is already stopped")
+        logger.error(f"Service {service} is already stopped")
         return 1
     if kill:
         return kill_service(service)
@@ -197,6 +204,7 @@ def stop_service(service, kill=False):
 def start_service(service, opts):
     config_path = get_file(f'.services/{service["name"]}.plist')
     if not os.path.exists(config_path):
+        logger.debug("Service config file not found creating a new one")
         with open(config_path, "w") as f:
             f.write(
                 create_service_config(
@@ -207,34 +215,38 @@ def start_service(service, opts):
     status = service_status(service["name"])[0]
     if status is True:
         if opts.force:
+            logger.info("Restarting the service")
             return kickstart_service(service["name"])
         else:
-            cl.error(
+            logger.error(
                 "Service is already running use --force to start the service anyways"
             )
     elif status is False:
+        logger.debug("Starting the service")
         return kickstart_service(service["name"])
     elif status is None:
         return create_service(service["name"], config_path)
 
 
-def remove_service(service, disp=True):
+def remove_service(service):
     stat, *_ = service_status(service)
-    if stat is None and disp:
-        cl.error(f"Service {service} is already removed")
+    if stat is None:
+        logger.error(f"Service {service} is already removed")
         return 1
 
     config = get_file(f".services/{service}.plist")
     c = subprocess.run(["launchctl", "disable", get_service_target(service)])
-    if c.returncode != 0 and disp:
-        cl.log("error while disabling the service")
+    if c.returncode != 0:
+        logger.info("error while disabling the service")
+    logger.debug("Disabled the service")
     c = subprocess.run(["launchctl", "bootout", get_domain(), config])
 
-    if c.returncode != 0 and disp:
-        cl.error("Failed to remove the service (error while booting out the service)")
+    if c.returncode != 0:
+        logger.info("Failed to remove the service")
+        logger.debug("error while booting out the service")
         return 1
 
-    cl.log("Service removed successfully")
+    logger.info("Service removed successfully")
     return 0
 
 
@@ -257,6 +269,8 @@ def get_service_info(service, service_info):
         service_target=get_service_target(service),
         config_file=config_file,
         output_file=outpath,
+        startup=service_info.get("startup", False),
+        mainfile=service_info.get("mainfile"),
     )
 
 
@@ -281,7 +295,7 @@ def start(opts, parser):
     if opts.watch:
         outpath = os.path.join(os.path.dirname(service["mainfile"]), ".output/stdout")
         if os.path.exists(outpath) is not True:
-            cl.error("Output file for the service does not exist")
+            logger.error("Output file for the service does not exist")
             return 1
         os.system(f"tail -f {outpath}")
 
@@ -309,13 +323,13 @@ def logs(opts, parser):
 
     outpath = os.path.join(os.path.dirname(service["mainfile"]), ".output/stdout")
     if os.path.exists(outpath) is not True:
-        cl.error("Output file for the service does not exist")
+        logger.error("Output file for the service does not exist")
         return 1
     if opts.watch is True:
         if service_status(opts.service)[0] is True:
             os.system(f"tail -f {outpath}")
             return 0
-        cl.log("Service is not running displaying previous logs")
+        logger.info("Service is not running displaying previous logs")
     elif opts.file is True:
         print(outpath)
         return 0
@@ -323,7 +337,7 @@ def logs(opts, parser):
     elif opts.clear:
         with open(outpath, "w") as f:
             f.write("")
-        cl.log("Cleared log file sucessfully")
+        logger.info("Cleared log file sucessfully")
         return 0
     with open(outpath, "r") as f:
         if opts.json:
@@ -354,7 +368,7 @@ def stop(opts, parser):
 def unload(opts, parser):
     _, services = get_service(opts, parser)
 
-    remove_service(opts.service, disp=False)
+    remove_service(opts.service)
     services.pop(opts.service)
     with open(get_file("services.json"), "w") as f:
         json.dump(services, f, indent=4)
@@ -584,6 +598,13 @@ def parse_args():
         description="A simple service manager",
         formatter_class=parser_util.NoSubparsersMetavarFormatter,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity level (up to 2 times)",
+    )
 
     subparser = parser.add_subparsers(title="Commands", dest="command", required=True)
     create_start_parser(subparser)
@@ -596,19 +617,29 @@ def parse_args():
     create_status_parser(subparser)
 
     opts = parser.parse_args()
+    verbosity = min(2, opts.verbose)
+    log_levels = [
+        logging.ERROR,
+        logging.INFO,
+        logging.DEBUG,
+    ]
+    log_level = log_levels[verbosity]
+    logger.setLevel(log_level)
 
     return opts, subparser.choices[opts.command]
 
 
 def main():
+    opts, parser = parse_args()
+    zono.colorlogger.MAIN_LOGGERS.append("main")
     if not os.path.exists(get_file("env.txt")):
         import install
 
+        install.logger.setLevel(logger.getEffectiveLevel())
         install.main()
+
     with open(get_file("env.txt"), "w") as f:
         f.write(os.environ.get("PATH"))
-    opts, parser = parse_args()
-
     if os.getuid() == 0:
         parser.error(
             "To manage user services the command needs to be run as a non-root"
