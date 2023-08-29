@@ -14,7 +14,7 @@ import sys
 import os
 
 
-logger = zono.colorlogger.create_logger("main")
+logger = zono.colorlogger.create_logger("service")
 
 
 def get_file(filename):
@@ -28,8 +28,7 @@ settings = zono.settings.Settings(
 
 def get_service_line(job_label):
     try:
-        command = ["launchctl", "list"]
-        launchctl_output = subprocess.check_output(command, text=True)
+        launchctl_output = subprocess.check_output(["launchctl", "list"], text=True)
 
         lines = launchctl_output.strip().split("\n")
         for line in lines:
@@ -37,7 +36,7 @@ def get_service_line(job_label):
                 return line
 
     except subprocess.CalledProcessError as e:
-        print(f"Error running launchctl list: {e}")
+        logger.error(f"Error running launchctl list: {e}")
         return None
 
 
@@ -238,7 +237,8 @@ def remove_service(service):
     c = subprocess.run(["launchctl", "disable", get_service_target(service)])
     if c.returncode != 0:
         logger.info("error while disabling the service")
-    logger.debug("Disabled the service")
+    else:
+        logger.debug("Disabled the service")
     c = subprocess.run(["launchctl", "bootout", get_domain(), config])
 
     if c.returncode != 0:
@@ -260,7 +260,7 @@ def get_service_info(service, service_info):
     )
 
     stat, pid, retcode = service_status(service)
-    return dict(
+    return dict(  
         status=stat,
         pid=pid,
         return_code=retcode,
@@ -631,7 +631,6 @@ def parse_args():
 
 def main():
     opts, parser = parse_args()
-    zono.colorlogger.MAIN_LOGGERS.append("main")
     if not os.path.exists(get_file("env.txt")):
         import install
 
