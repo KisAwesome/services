@@ -260,7 +260,7 @@ def get_service_info(service, service_info):
     )
 
     stat, pid, retcode = service_status(service)
-    return dict(  
+    return dict(
         status=stat,
         pid=pid,
         return_code=retcode,
@@ -337,13 +337,15 @@ def logs(opts, parser):
     elif opts.clear:
         with open(outpath, "w") as f:
             f.write("")
-        logger.info("Cleared log file sucessfully")
+        logger.info("Cleared log file successfully")
         return 0
     with open(outpath, "r") as f:
         if opts.json:
             print(json.dumps(f.readlines(), indent=4))
         else:
-            print(f.read())
+            g = f.read()
+            if g:
+                print(g)
     return 0
 
 
@@ -463,6 +465,11 @@ def load(opts, parser):
     return 0
 
 
+def help(opts, parser):
+    parser.main_parser.print_help()
+    return 0
+
+
 commands = dict(
     start=start,
     status=status,
@@ -472,6 +479,7 @@ commands = dict(
     unload=unload,
     info=info,
     create_plist=create_plist,
+    help=help,
 )
 
 
@@ -592,6 +600,10 @@ def create_plist_parser(subparser):
     )
 
 
+def create_help_parser(subparser):
+    subparser.add_parser("help", help="Display command help")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="service",
@@ -615,6 +627,7 @@ def parse_args():
     create_unload_parser(subparser)
     create_info_parser(subparser)
     create_status_parser(subparser)
+    create_help_parser(subparser)
 
     opts = parser.parse_args()
     verbosity = min(2, opts.verbose)
@@ -626,7 +639,9 @@ def parse_args():
     log_level = log_levels[verbosity]
     logger.setLevel(log_level)
 
-    return opts, subparser.choices[opts.command]
+    chosen_parser = subparser.choices[opts.command]
+    chosen_parser.main_parser = parser
+    return (opts, chosen_parser)
 
 
 def main():
