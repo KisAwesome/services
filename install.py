@@ -8,7 +8,7 @@ def get_file(filename):
     return os.path.join(os.path.dirname(__file__), filename)
 
 
-logger = cl.create_logger("installer", 0)
+logger = cl.create_logger("installer", 10)
 
 
 def main():
