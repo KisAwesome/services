@@ -1,0 +1,8 @@
+env.txt
+.services/
+.DS_store
+.output/
+__pycache__/
+settings.json
+services.json
+tempCodeRunnerFile.py
