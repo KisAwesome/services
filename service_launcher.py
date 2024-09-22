@@ -9,9 +9,9 @@ def get_file(filename):
 
 
 def main():
-    print("fff")
     sys.argv.pop(0)
     path = " ".join(sys.argv)
+    print("Launching service at path: ",path)
 
     with open(get_file("env.txt"), "r") as f:
         PATH = f.read()

@@ -298,7 +298,7 @@ def start(opts, parser):
             logger.error("Output file for the service does not exist")
             return 1
         os.system(f"tail -f {outpath}")
-
+    return 0
 
 def status(opts, parser):
     with open(get_file("services.json"), "r") as f:
